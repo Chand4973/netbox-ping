@@ -1,0 +1,5 @@
+Metadata-Version: 2.2
+Name: netbox_ping
+Version: 0.2
+Summary: A NetBox plugin for pinging prefixes and IP addresses.
+Dynamic: summary
