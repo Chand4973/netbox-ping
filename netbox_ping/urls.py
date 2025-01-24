@@ -1,4 +1,4 @@
-# netbox_ping/netbox_ping/urls.py
+# netbox_ping/urls.py
 
 from django.urls import path
 from .views import PingPrefixView, PingIPAddressView
