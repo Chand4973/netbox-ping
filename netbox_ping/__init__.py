@@ -7,7 +7,7 @@ class Config(PluginConfig):
     version = '0.2'
     author = 'Christian Rose'
     default_settings = {
-        'exclude_virtual_interfaces': True
+        'coming_soon': True
     }
 
     # Register the custom table
