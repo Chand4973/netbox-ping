@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='netbox-ping',
-    version='0.2',
+    version='0.3',
     description='A NetBox plugin for pinging and discovering IPs',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',

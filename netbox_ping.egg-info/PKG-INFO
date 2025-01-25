@@ -2,7 +2,7 @@ Metadata-Version: 2.2
 Name: netbox-ping
 Version: 0.2
 Summary: A NetBox plugin for pinging and discovering IPs
-Home-page: https://github.com/yourusername/netbox-ping
+Home-page: https://github.com/dendanskemine/netbox-ping
 Author: Christian Rose
 License: Apache 2.0
 Classifier: Development Status :: 4 - Beta
@@ -10,7 +10,7 @@ Classifier: Framework :: Django
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/markdown
 Dynamic: author
 Dynamic: classifier
@@ -21,8 +21,12 @@ Dynamic: license
 Dynamic: summary
 
 # NetBox Ping Plugin
+![Python](https://img.shields.io/badge/python-3.12.3-blue.svg)
+![NetBox](https://img.shields.io/badge/netbox-4.2.2-blue.svg)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 A NetBox plugin for pinging and discovering IPs in your network.
+
 
 ## Features
 - Ping IPs and subnets directly from NetBox
@@ -43,7 +47,7 @@ PLUGINS = ['netbox_ping']
 
 PLUGINS_CONFIG = {
     'netbox_ping': {
-        'exclude_virtual_interfaces': True
+        'coming_soon': True
     }
 }
 ```
