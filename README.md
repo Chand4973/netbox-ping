@@ -1,6 +1,10 @@
 # NetBox Ping Plugin
+![Python](https://img.shields.io/badge/python-3.12.3-blue.svg)
+![NetBox](https://img.shields.io/badge/netbox-4.2.2-blue.svg)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 A NetBox plugin for pinging and discovering IPs in your network.
+
 
 ## Features
 - Ping IPs and subnets directly from NetBox
