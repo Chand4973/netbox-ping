@@ -1,12 +1,10 @@
-from extras.plugins import PluginTemplateExtension
-from django.contrib.contenttypes.models import ContentType
 from extras.choices import CustomFieldTypeChoices
 from extras.models import CustomField, Tag
+from django.db.models import Q
 
-def initialize_plugin():
-    """
-    Initialize plugin custom fields and tags
-    """
+def create_custom_fields_and_tags():
+    """Create custom fields and tags needed by the plugin"""
+    
     # Create Up_Down custom field
     custom_field, created = CustomField.objects.get_or_create(
         name='Up_Down',

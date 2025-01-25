@@ -3,9 +3,11 @@ README.md
 pyproject.toml
 setup.py
 netbox_ping/__init__.py
+netbox_ping/config.py
 netbox_ping/forms.py
 netbox_ping/navigation.py
 netbox_ping/plugin.py
+netbox_ping/signals.py
 netbox_ping/template_content.py
 netbox_ping/template_extensions.py
 netbox_ping/urls.py

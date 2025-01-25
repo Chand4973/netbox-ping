@@ -23,10 +23,10 @@
                             <tr>
                                 <td>{{ prefix.prefix }}</td>
                                 <td>
-                                    <a href="{% url 'plugins:netbox_ping:ping_subnet' prefix_id=prefix.id %}" class="btn btn-sm btn-primary">
+                                    <a href="#" onclick="return startScan(this, '{% url 'plugins:netbox_ping:ping_subnet' prefix_id=prefix.id %}', '{{ prefix.prefix }}')" class="btn btn-sm btn-primary">
                                         <span class="mdi mdi-lan"></span> Check Status
                                     </a>
-                                    <a href="{% url 'plugins:netbox_ping:scan_subnet' prefix_id=prefix.id %}" class="btn btn-sm btn-info">
+                                    <a href="#" onclick="return startScan(this, '{% url 'plugins:netbox_ping:scan_subnet' prefix_id=prefix.id %}', '{{ prefix.prefix }}')" class="btn btn-sm btn-info">
                                         <span class="mdi mdi-magnify"></span> Scan Subnet
                                     </a>
                                 </td>
@@ -39,4 +39,21 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+function startScan(button, url, prefix) {
+    // Disable button and show loading state
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Scanning ${prefix}...`;
+    
+    // Redirect after a short delay
+    setTimeout(function() {
+        window.location.href = url;
+    }, 500);
+    
+    return false;  // Prevent default link behavior
+}
+</script>
 {% endblock %} 

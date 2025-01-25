@@ -146,7 +146,7 @@ class PingSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
     def get(self, request, prefix_id):
         prefix = get_object_or_404(Prefix, id=prefix_id)
-        messages.info(request, f"Checking status of existing IPs in subnet {prefix.prefix}")
+        messages.info(request, f"🔍 Starting status check for subnet {prefix.prefix}")
 
         try:
             online_tag = Tag.objects.get(slug='online')
@@ -158,18 +158,16 @@ class PingSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
         except Tag.DoesNotExist:
             offline_tag = Tag.objects.create(name='offline', slug='offline')
 
-        # Get only existing IPs in the subnet - modified query
+        # Get only existing IPs in the subnet
         network = ip_network(prefix.prefix)
         all_ips = IPAddress.objects.filter(address__startswith=str(network.network_address).replace('.0', '.'))
-        messages.info(request, f"Debug - Prefix: {prefix.prefix}, Network: {network}")
-        messages.info(request, f"Found {all_ips.count()} IPs to check")
         
         existing_ips = {}
+        status_changes = []
         for ip in all_ips:
             ip_net = str(ip_interface(ip.address).ip)
             existing_ips[ip_net] = ip
-            messages.info(request, f"Will check IP: {ip_net}")
-        
+
         if not existing_ips:
             messages.warning(request, "No existing IPs found in this subnet")
             return redirect('ipam:prefix', pk=prefix_id)
@@ -197,9 +195,13 @@ class PingSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 ip_obj.save()
                 
                 if old_status != is_alive:
-                    messages.info(request, f"Updated IP {ip_str} status from {old_status} to {'up' if is_alive else 'down'}")
-                else:
-                    messages.info(request, f"IP {ip_str} status unchanged: {'up' if is_alive else 'down'}")
+                    status_changes.append(f"{ip_str}: {'🟢 up' if is_alive else '🔴 down'}")
+
+        # Show summary message
+        if status_changes:
+            messages.success(request, f"✅ Status check complete - Changes detected:\n" + "\n".join(status_changes))
+        else:
+            messages.success(request, f"✅ Status check complete - No changes detected")
 
         return redirect('ipam:prefix', pk=prefix_id)
 
