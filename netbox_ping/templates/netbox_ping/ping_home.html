@@ -24,7 +24,10 @@
                                 <td>{{ prefix.prefix }}</td>
                                 <td>
                                     <a href="{% url 'plugins:netbox_ping:ping_subnet' prefix_id=prefix.id %}" class="btn btn-sm btn-primary">
-                                        <span class="mdi mdi-lan"></span> Ping Subnet
+                                        <span class="mdi mdi-lan"></span> Check Status
+                                    </a>
+                                    <a href="{% url 'plugins:netbox_ping:scan_subnet' prefix_id=prefix.id %}" class="btn btn-sm btn-info">
+                                        <span class="mdi mdi-magnify"></span> Scan Subnet
                                     </a>
                                 </td>
                             </tr>
