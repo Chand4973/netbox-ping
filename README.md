@@ -129,5 +129,5 @@ If you have any questions or need help, please:
 - Inspired by the need for simple IP status tracking, this is my first plugin for NetBox.
 - I'm not a good python developer, so this is probably not the best way to do this.
 - The plugin `netbox-interface-synchronization` gave me a lot of inspiration, code wise, as the offical NetBox development repo had some issues, i couldn't get around.
-- The plugin [[`netbox-interface-synchronization`](https://github.com/NetTech2001/netbox-interface-synchronization/tree/main)] is a great plugin, and i recommend using it if you need to synchronize interfaces.
+- The plugin [netbox-interface-synchronization](https://github.com/NetTech2001/netbox-interface-synchronization/tree/main) is a great plugin, and i recommend using it if you need to synchronize interfaces.
 
