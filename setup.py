@@ -1,17 +1,24 @@
-from setuptools import setup
-
-with open('README.md', encoding='utf-8') as f:
-    long_description = f.read()
+from setuptools import setup, find_packages
 
 setup(
-    name='netbox_ping',
+    name='netbox-ping',
     version='0.2',
-    description='Ping IPs and subnets',
-    long_description=long_description,
+    description='A NetBox plugin for pinging and discovering IPs',
+    long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
+    url='https://github.com/yourusername/netbox-ping',
     author='Christian Rose',
-    license='GPL-3.0',
-    packages=["netbox_ping"],
-    package_data={"netbox_ping": ["templates/netbox_ping/*.html"]},
-    zip_safe=False
-    )
+    license='Apache 2.0',
+    install_requires=[],
+    packages=find_packages(),
+    include_package_data=True,
+    zip_safe=False,
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Framework :: Django',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+    ],
+)

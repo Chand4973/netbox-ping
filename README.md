@@ -1,15 +1,36 @@
-# netbox-prefix-pinger
+# NetBox Ping Plugin
 
-A NetBox plugin that adds IP ping functionality to check the status of IP addresses within your prefixes.
+A NetBox plugin for pinging and discovering IPs in your network.
 
 ## Features
+- Ping IPs and subnets directly from NetBox
+- Auto-discover new IPs
+- Track IP status with custom fields and tags
+- Bulk scan operations
+- Dark mode compatible UI
 
-- Check status of existing IPs in a subnet
-- Scan entire subnets to discover active IPs
-- Automatic status tracking with custom fields
-- Visual status indicators (online/offline tags)
-- Real-time status updates
-- Concurrent scanning for better performance
+## Installation
+```bash
+pip install netbox-ping
+```
+
+## Configuration
+Add to your `configuration.py`:
+```python
+PLUGINS = ['netbox_ping']
+
+PLUGINS_CONFIG = {
+    'netbox_ping': {
+        'exclude_virtual_interfaces': True
+    }
+}
+```
+
+## Usage
+1. Install the plugin
+2. Navigate to Plugins > NetBox Ping
+3. Click "Create Required Fields & Tags"
+4. Start scanning your networks!
 
 ## Requirements
 

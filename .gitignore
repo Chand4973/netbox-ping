@@ -1,1 +1,5 @@
+
 venv/
+~/.pypirc
+.pypirc
+/.pypirc
