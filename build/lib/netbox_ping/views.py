@@ -4,14 +4,9 @@ from dcim.models import Device, Interface, InterfaceTemplate
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.conf import settings
 from django.contrib import messages
-from ipam.models import Prefix, IPAddress
-from ipaddress import ip_network
-import subprocess
-import concurrent.futures
 
 from .utils import UnifiedInterface, natural_keys
 from .forms import InterfaceComparisonForm
-from extras.models import Tag
 
 config = settings.PLUGINS_CONFIG['netbox_ping']
 
@@ -117,92 +112,3 @@ class InterfaceComparisonView(LoginRequiredMixin, PermissionRequiredMixin, View)
             messages.success(request, "; ".join(message).capitalize())
 
             return redirect(request.path)
-
-class PingHomeView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    permission_required = "ipam.view_prefix"
-
-    def get(self, request):
-        return render(request, 'netbox_ping/ping_home.html', {
-            'prefixes': Prefix.objects.all(),
-            'tab': 'main',
-            'model': Prefix,
-            'table': None,
-            'actions': ('add', 'import', 'export', 'bulk_edit', 'bulk_delete'),
-        })
-
-class PingSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """View for pinging an entire subnet and adding discovered IPs"""
-    permission_required = "ipam.view_prefix"
-
-    def ping_ip(self, ip):
-        """Ping a single IP address"""
-        try:
-            result = subprocess.run(['ping', '-c', '1', '-W', '1', str(ip)], 
-                                  capture_output=True, 
-                                  timeout=2)
-            return str(ip), result.returncode == 0
-        except:
-            return str(ip), False
-
-    def get(self, request, prefix_id):
-        prefix = get_object_or_404(Prefix, id=prefix_id)
-        messages.info(request, f"Initiating ping sweep of subnet {prefix.prefix}")
-
-        try:
-            online_tag = Tag.objects.get(slug='online')
-        except Tag.DoesNotExist:
-            online_tag = Tag.objects.create(name='online', slug='online')
-            
-        try:
-            offline_tag = Tag.objects.get(slug='offline')
-        except Tag.DoesNotExist:
-            offline_tag = Tag.objects.create(name='offline', slug='offline')
-
-        network = ip_network(prefix.prefix)
-        existing_ips = {ip.address.split('/')[0]: ip for ip in IPAddress.objects.filter(address__net_contained=str(prefix.prefix))}
-        
-        discovered_ips = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-            hosts = list(network.hosts()) if network.prefixlen < 31 else list(network)
-            future_to_ip = {executor.submit(self.ping_ip, ip): ip for ip in hosts}
-            
-            for future in concurrent.futures.as_completed(future_to_ip):
-                ip_str, is_alive = future.result()
-                
-                if ip_str in existing_ips:
-                    # Update existing IP
-                    ip_obj = existing_ips[ip_str]
-                    ip_obj.custom_field_data['Up_Down'] = is_alive
-                    ip_obj.tags.remove(online_tag if not is_alive else offline_tag)
-                    ip_obj.tags.add(online_tag if is_alive else offline_tag)
-                    ip_obj.save()
-                    messages.info(request, f"Updated IP {ip_str} status to {'up' if is_alive else 'down'}")
-                elif is_alive:
-                    # Check if IP already exists with /32
-                    try:
-                        ip_obj = IPAddress.objects.get(address=f"{ip_str}/32")
-                        # Update existing IP
-                        ip_obj.custom_field_data['Up_Down'] = True
-                        ip_obj.tags.add(online_tag)
-                        ip_obj.save()
-                        messages.info(request, f"Updated existing IP {ip_str}")
-                    except IPAddress.DoesNotExist:
-                        # Create new IP only if it doesn't exist
-                        discovered_ips.append(ip_str)
-                        try:
-                            ip_obj = IPAddress.objects.create(
-                                address=f"{ip_str}/32",
-                                status='active',
-                                custom_field_data={'Up_Down': True}
-                            )
-                            ip_obj.tags.add(online_tag)
-                            messages.success(request, f"Added IP {ip_str}")
-                        except Exception as e:
-                            messages.error(request, f"Failed to add IP {ip_str}: {str(e)}")
-
-        if discovered_ips:
-            messages.success(request, f"Discovered {len(discovered_ips)} new IPs: {', '.join(discovered_ips)}")
-        else:
-            messages.info(request, "No new IPs discovered")
-
-        return redirect('ipam:prefix', pk=prefix_id)

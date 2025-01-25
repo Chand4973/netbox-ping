@@ -1,5 +1,18 @@
 Metadata-Version: 2.2
 Name: netbox_ping
-Version: 0.2
-Summary: A NetBox plugin for pinging prefixes and IP addresses.
+Version: 4.1.5
+Summary: Syncing existing interfaces with the interfaces from a device type template in NetBox 4+
+Author: Keith Knowles
+Author-email: mkknowles@outlook.com
+License: GPL-3.0
+Description-Content-Type: text/markdown
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license
 Dynamic: summary
+
+# netbox-prefix-pinger
+# netbox-prefix-pinger
+# netbox-prefix-pinger

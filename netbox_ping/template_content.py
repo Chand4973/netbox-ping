@@ -1,6 +1,6 @@
-from netbox.plugins import PluginTemplateExtension
+from netbox.plugins.template_content import PluginTemplateContent
 
-class PrefixExtension(PluginTemplateExtension):
+class PrefixContent(PluginTemplateContent):
     model = 'ipam.prefix'
 
     def buttons(self):
@@ -12,4 +12,4 @@ class PrefixExtension(PluginTemplateExtension):
             </a>
         '''
 
-template_extensions = [PrefixExtension] 
+template_content = [PrefixContent]

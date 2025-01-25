@@ -3,9 +3,13 @@ README.md
 pyproject.toml
 setup.py
 netbox_ping/__init__.py
+netbox_ping/forms.py
+netbox_ping/navigation.py
 netbox_ping/plugin.py
+netbox_ping/template_content.py
 netbox_ping/template_extensions.py
 netbox_ping/urls.py
+netbox_ping/utils.py
 netbox_ping/views.py
 netbox_ping.egg-info/PKG-INFO
 netbox_ping.egg-info/SOURCES.txt
@@ -13,5 +17,10 @@ netbox_ping.egg-info/dependency_links.txt
 netbox_ping.egg-info/not-zip-safe
 netbox_ping.egg-info/top_level.txt
 netbox_ping/migrations/__init__.py
-netbox_ping/templates/netbox_ping/ip_button.html
+netbox_ping/templates/netbox_ping/compare_interfaces_button.html
+netbox_ping/templates/netbox_ping/interface_comparison.html
+netbox_ping/templates/netbox_ping/number_of_interfaces_panel.html
+netbox_ping/templates/netbox_ping/ping_home.html
+netbox_ping/templates/netbox_ping/ping_subnet_button.html
 netbox_ping/templates/netbox_ping/prefix_button.html
+netbox_ping/templates/netbox_ping/prefix_content.html

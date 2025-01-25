@@ -1,0 +1,39 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+
+{% block title %}Network Tools{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">Network Tools</h5>
+            <div class="card-body">
+                <h5>Available Prefixes</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Prefix</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for prefix in prefixes %}
+                            <tr>
+                                <td>{{ prefix.prefix }}</td>
+                                <td>
+                                    <a href="{% url 'plugins:netbox_ping:ping_subnet' prefix_id=prefix.id %}" class="btn btn-sm btn-primary">
+                                        <span class="mdi mdi-lan"></span> Ping Subnet
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
