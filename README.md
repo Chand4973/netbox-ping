@@ -21,7 +21,7 @@ PLUGINS = ['netbox_ping']
 
 PLUGINS_CONFIG = {
     'netbox_ping': {
-        'exclude_virtual_interfaces': True
+        'coming_soon': True
     }
 }
 ```
