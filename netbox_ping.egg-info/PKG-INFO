@@ -1,28 +1,58 @@
 Metadata-Version: 2.2
-Name: netbox_ping
+Name: netbox-ping
 Version: 0.2
-Summary: Ping IPs and subnets
+Summary: A NetBox plugin for pinging and discovering IPs
+Home-page: https://github.com/yourusername/netbox-ping
 Author: Christian Rose
-License: GPL-3.0
+License: Apache 2.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: Django
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
 Description-Content-Type: text/markdown
 Dynamic: author
+Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
+Dynamic: home-page
 Dynamic: license
 Dynamic: summary
 
-# netbox-prefix-pinger
+# NetBox Ping Plugin
 
-A NetBox plugin that adds IP ping functionality to check the status of IP addresses within your prefixes.
+A NetBox plugin for pinging and discovering IPs in your network.
 
 ## Features
+- Ping IPs and subnets directly from NetBox
+- Auto-discover new IPs
+- Track IP status with custom fields and tags
+- Bulk scan operations
+- Dark mode compatible UI
 
-- Check status of existing IPs in a subnet
-- Scan entire subnets to discover active IPs
-- Automatic status tracking with custom fields
-- Visual status indicators (online/offline tags)
-- Real-time status updates
-- Concurrent scanning for better performance
+## Installation
+```bash
+pip install netbox-ping
+```
+
+## Configuration
+Add to your `configuration.py`:
+```python
+PLUGINS = ['netbox_ping']
+
+PLUGINS_CONFIG = {
+    'netbox_ping': {
+        'exclude_virtual_interfaces': True
+    }
+}
+```
+
+## Usage
+1. Install the plugin
+2. Navigate to Plugins > NetBox Ping
+3. Click "Create Required Fields & Tags"
+4. Start scanning your networks!
 
 ## Requirements
 
