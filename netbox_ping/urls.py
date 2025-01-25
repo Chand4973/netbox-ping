@@ -10,4 +10,6 @@ urlpatterns = (
     path('', views.PingHomeView.as_view(), name='ping_home'),
     path('ping-subnet/<int:prefix_id>/', views.PingSubnetView.as_view(), name='ping_subnet'),
     path('scan-subnet/<int:prefix_id>/', views.ScanSubnetView.as_view(), name='scan_subnet'),
+    path('initialize/', views.InitializePluginView.as_view(), name='initialize_plugin'),
+    path('scan-all/', views.ScanAllView.as_view(), name='scan_all'),
 )

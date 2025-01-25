@@ -3,32 +3,105 @@
 
 {% block title %}Network Tools{% endblock %}
 
+{% block head %}
+<style>
+    .progress-text {
+        position: absolute;
+        left: 0;
+        right: 0;
+        text-align: center;
+        line-height: 20px;
+        color: var(--text-color);  /* Uses NetBox's text color variable */
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.4);  /* Adds shadow for better visibility */
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="row mb-3">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">
+                Plugin Setup
+                <div class="float-end">
+                    <a href="{% url 'plugins:netbox_ping:initialize_plugin' %}" class="btn btn-sm btn-primary">
+                        <span class="mdi mdi-plus-circle"></span> Create Required Fields & Tags
+                    </a>
+                </div>
+            </h5>
+            <div class="card-body">
+                <p class="text-muted">This plugin requires custom fields and tags to track IP status. Click the button above to create them.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row">
     <div class="col col-md-12">
         <div class="card">
-            <h5 class="card-header">Network Tools</h5>
+            <h5 class="card-header">
+                Network Tools
+                <div class="float-end">
+                    <button onclick="return scanAll(this)" class="btn btn-sm btn-success">
+                        <span class="mdi mdi-refresh"></span> Scan All Prefixes
+                    </button>
+                </div>
+            </h5>
             <div class="card-body">
-                <h5>Available Prefixes</h5>
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
                             <tr>
                                 <th>Prefix</th>
+                                <th>Description</th>
+                                <th>Site</th>
+                                <th>VRF</th>
+                                <th>Tenant</th>
+                                <th>IP Usage</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for prefix in prefixes %}
+                            {% for item in prefix_data %}
                             <tr>
-                                <td>{{ prefix.prefix }}</td>
+                                <td><a href="{% url 'ipam:prefix' pk=item.prefix.pk %}">{{ item.prefix.prefix }}</a></td>
+                                <td>{{ item.description }}</td>
+                                <td>{{ item.site }}</td>
+                                <td>{{ item.vrf }}</td>
+                                <td>{{ item.tenant }}</td>
                                 <td>
-                                    <a href="#" onclick="return startScan(this, '{% url 'plugins:netbox_ping:ping_subnet' prefix_id=prefix.id %}', '{{ prefix.prefix }}')" class="btn btn-sm btn-primary">
-                                        <span class="mdi mdi-lan"></span> Check Status
-                                    </a>
-                                    <a href="#" onclick="return startScan(this, '{% url 'plugins:netbox_ping:scan_subnet' prefix_id=prefix.id %}', '{{ prefix.prefix }}')" class="btn btn-sm btn-info">
-                                        <span class="mdi mdi-magnify"></span> Scan Subnet
-                                    </a>
+                                    <div class="progress" style="height: 20px; position: relative;">
+                                        <div class="progress-bar {% if item.stats.utilization > 90 %}bg-danger{% elif item.stats.utilization > 75 %}bg-warning{% else %}bg-success{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ item.stats.utilization }}%"
+                                             title="{{ item.stats.used_ips }}/{{ item.stats.total_ips }} IPs used">
+                                        </div>
+                                        <div class="progress-text">
+                                            {{ item.stats.utilization }}%
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">
+                                        {{ item.stats.used_ips }}/{{ item.stats.total_ips }} IPs used
+                                    </small>
+                                </td>
+                                <td class="text-end noprint">
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                            <span class="mdi mdi-dots-vertical"></span>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="#" onclick="return startScan(this, '{% url 'plugins:netbox_ping:ping_subnet' prefix_id=item.prefix.id %}', '{{ item.prefix.prefix }}')">
+                                                    <i class="mdi mdi-lan"></i> Check Status
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" onclick="return startScan(this, '{% url 'plugins:netbox_ping:scan_subnet' prefix_id=item.prefix.id %}', '{{ item.prefix.prefix }}')">
+                                                    <i class="mdi mdi-magnify"></i> Scan Subnet
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -44,16 +117,34 @@
 {% block javascript %}
 <script>
 function startScan(button, url, prefix) {
-    // Disable button and show loading state
-    button.disabled = true;
-    button.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Scanning ${prefix}...`;
+    // Get the parent dropdown menu item
+    const menuItem = button.closest('.dropdown-item');
+    const originalContent = menuItem.innerHTML;
+    
+    // Disable the entire dropdown
+    const dropdown = button.closest('.btn-group');
+    dropdown.querySelector('.btn').disabled = true;
+    
+    // Show loading state
+    menuItem.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Scanning ${prefix}...`;
     
     // Redirect after a short delay
     setTimeout(function() {
         window.location.href = url;
     }, 500);
     
-    return false;  // Prevent default link behavior
+    return false;
+}
+
+function scanAll(button) {
+    // Disable button and show loading state
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Scanning All Prefixes...`;
+    
+    // Simply redirect to scan-all URL
+    window.location.href = "{% url 'plugins:netbox_ping:scan_all' %}";
+    
+    return false;
 }
 </script>
 {% endblock %} 

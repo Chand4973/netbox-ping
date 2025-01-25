@@ -8,6 +8,7 @@ from ipam.models import Prefix, IPAddress
 from ipaddress import ip_network, ip_interface
 import subprocess
 import concurrent.futures
+from datetime import date
 
 from .utils import UnifiedInterface, natural_keys
 from .forms import InterfaceComparisonForm
@@ -121,9 +122,48 @@ class InterfaceComparisonView(LoginRequiredMixin, PermissionRequiredMixin, View)
 class PingHomeView(LoginRequiredMixin, PermissionRequiredMixin, View):
     permission_required = "ipam.view_prefix"
 
+    def get_prefix_stats(self, prefix):
+        """Get statistics for a prefix"""
+        # Get child IPs count using NetBox's method
+        used_ips = prefix.get_child_ips().count()
+        
+        # Get total available IPs
+        total_ips = prefix.get_available_ips().size
+        
+        # Calculate utilization
+        utilization = round((used_ips / total_ips * 100), 2) if total_ips > 0 else 0
+        
+        # Debug info
+        print(f"\nPrefix: {prefix.prefix}")
+        print(f"Child IPs: {used_ips}")
+        print(f"Total Available: {total_ips}")
+        print(f"Utilization: {utilization}%")
+        print("---")
+        
+        return {
+            'total_ips': total_ips,
+            'used_ips': used_ips,
+            'available_ips': total_ips - used_ips,
+            'utilization': utilization
+        }
+
     def get(self, request):
+        prefixes = Prefix.objects.all()
+        prefix_data = []
+
+        for prefix in prefixes:
+            stats = self.get_prefix_stats(prefix)
+            prefix_data.append({
+                'prefix': prefix,
+                'stats': stats,
+                'description': prefix.description or "No description",
+                'site': prefix.site.name if prefix.site else "—",
+                'vrf': prefix.vrf.name if prefix.vrf else "Global",
+                'tenant': prefix.tenant.name if prefix.tenant else "—",
+            })
+
         return render(request, 'netbox_ping/ping_home.html', {
-            'prefixes': Prefix.objects.all(),
+            'prefix_data': prefix_data,
             'tab': 'main',
             'model': Prefix,
             'table': None,
@@ -205,6 +245,13 @@ class PingSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
         return redirect('ipam:prefix', pk=prefix_id)
 
+def get_existing_ip(ip_str, prefix_length):
+    """Helper function to check if IP exists (case-insensitive)"""
+    try:
+        return IPAddress.objects.get(address__iexact=f"{ip_str}/{prefix_length}")
+    except IPAddress.DoesNotExist:
+        return None
+
 class ScanSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """View for scanning entire subnet and adding all discovered IPs"""
     permission_required = "ipam.view_prefix"
@@ -227,19 +274,15 @@ class ScanSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
         try:
             online_tag = Tag.objects.get(slug='online')
-        except Tag.DoesNotExist:
-            online_tag = Tag.objects.create(name='online', slug='online')
-            
-        try:
             offline_tag = Tag.objects.get(slug='offline')
+            auto_discovered_tag = Tag.objects.get(slug='auto-discovered')
         except Tag.DoesNotExist:
-            offline_tag = Tag.objects.create(name='offline', slug='offline')
+            messages.error(request, "Required tags not found. Please initialize the plugin first.")
+            return redirect('plugins:netbox_ping:ping_home')
 
         network = ip_network(prefix.prefix)
-        existing_ips = {str(ip_interface(ip.address).ip): ip 
-                       for ip in IPAddress.objects.filter(address__net_contained=str(prefix.prefix))}
-        
         discovered_ips = []
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
             hosts = list(network.hosts()) if network.prefixlen < 31 else list(network)
             future_to_ip = {executor.submit(self.ping_ip, ip): ip for ip in hosts}
@@ -248,9 +291,11 @@ class ScanSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 ip_str, is_alive = future.result()
                 
                 if is_alive:
-                    if ip_str in existing_ips:
+                    # Check if IP exists (case-insensitive)
+                    ip_obj = get_existing_ip(ip_str, prefix_length)
+                    
+                    if ip_obj:
                         # Update existing IP
-                        ip_obj = existing_ips[ip_str]
                         ip_obj.custom_field_data['Up_Down'] = True
                         ip_obj.tags.remove(offline_tag)
                         ip_obj.tags.add(online_tag)
@@ -263,9 +308,13 @@ class ScanSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
                             ip_obj = IPAddress.objects.create(
                                 address=f"{ip_str}/{prefix_length}",
                                 status='active',
-                                custom_field_data={'Up_Down': True}
+                                custom_field_data={
+                                    'Up_Down': True,
+                                    'Auto_discovered': str(date.today())
+                                }
                             )
                             ip_obj.tags.add(online_tag)
+                            ip_obj.tags.add(auto_discovered_tag)
                             messages.success(request, f"Added new IP {ip_str}")
                         except Exception as e:
                             messages.error(request, f"Failed to add IP {ip_str}: {str(e)}")
@@ -276,3 +325,106 @@ class ScanSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
             messages.info(request, "No new IPs discovered")
 
         return redirect('ipam:prefix', pk=prefix_id)
+
+class InitializePluginView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """View for manually initializing plugin custom fields and tags"""
+    permission_required = "ipam.view_prefix"
+
+    def get(self, request):
+        from .plugin import initialize_plugin
+        try:
+            initialize_plugin()
+            messages.success(request, "Successfully initialized custom fields and tags!")
+        except Exception as e:
+            messages.error(request, f"Failed to initialize: {str(e)}")
+        
+        return redirect('plugins:netbox_ping:ping_home')
+
+class ScanAllView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """View for scanning all prefixes"""
+    permission_required = "ipam.view_prefix"
+
+    def ping_ip(self, ip):
+        """Ping a single IP address"""
+        try:
+            result = subprocess.run(['ping', '-c', '1', '-W', '1', str(ip)], 
+                                  capture_output=True, 
+                                  timeout=2)
+            return str(ip), result.returncode == 0
+        except Exception as e:
+            print(f"Error pinging {ip}: {str(e)}")
+            return str(ip), False
+
+    def get(self, request):
+        messages.info(request, "Starting scan of all prefixes...")
+        
+        try:
+            online_tag = Tag.objects.get(slug='online')
+            offline_tag = Tag.objects.get(slug='offline')
+            auto_discovered_tag = Tag.objects.get(slug='auto-discovered')
+        except Tag.DoesNotExist:
+            messages.error(request, "Required tags not found. Please initialize the plugin first.")
+            return redirect('plugins:netbox_ping:ping_home')
+
+        total_discovered = 0
+        total_prefixes = Prefix.objects.count()
+        current_prefix = 0
+
+        for prefix in Prefix.objects.iterator():
+            current_prefix += 1
+            messages.info(request, f"Scanning prefix {current_prefix}/{total_prefixes}: {prefix.prefix}")
+            
+            try:
+                network = ip_network(prefix.prefix)
+                prefix_length = prefix.prefix.prefixlen
+                
+                # Get list of hosts to scan
+                hosts = list(network.hosts()) if network.prefixlen < 31 else list(network)
+                
+                # Skip if too many hosts to scan
+                if len(hosts) > 1000:
+                    messages.warning(request, f"Skipping {prefix.prefix} - too many hosts ({len(hosts)})")
+                    continue
+
+                # Scan the subnet
+                with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+                    future_to_ip = {executor.submit(self.ping_ip, ip): ip for ip in hosts}
+                    
+                    for future in concurrent.futures.as_completed(future_to_ip):
+                        try:
+                            ip_str, is_alive = future.result()
+                            
+                            if is_alive:
+                                # Check if IP exists (case-insensitive)
+                                ip_obj = get_existing_ip(ip_str, prefix_length)
+                                
+                                if ip_obj:
+                                    # Update existing IP
+                                    ip_obj.custom_field_data['Up_Down'] = True
+                                    ip_obj.tags.remove(offline_tag)
+                                    ip_obj.tags.add(online_tag)
+                                    ip_obj.save()
+                                else:
+                                    # Add new IP
+                                    ip_obj = IPAddress.objects.create(
+                                        address=f"{ip_str}/{prefix_length}",
+                                        status='active',
+                                        custom_field_data={
+                                            'Up_Down': True,
+                                            'Auto_discovered': str(date.today())
+                                        }
+                                    )
+                                    ip_obj.tags.add(online_tag)
+                                    ip_obj.tags.add(auto_discovered_tag)
+                                    total_discovered += 1
+                                    messages.info(request, f"Discovered new IP: {ip_str}")
+                        except Exception as e:
+                            messages.error(request, f"Error processing {ip_str}: {str(e)}")
+                            continue
+
+            except Exception as e:
+                messages.error(request, f"Error scanning prefix {prefix.prefix}: {str(e)}")
+                continue
+
+        messages.success(request, f"✅ Completed scanning all prefixes. Discovered {total_discovered} new IPs.")
+        return redirect('plugins:netbox_ping:ping_home')
