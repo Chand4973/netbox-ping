@@ -16,4 +16,8 @@ class Config(PluginConfig):
     # Define which models support custom fields
     custom_field_models = ['ipaddress']
 
+    # API settings
+    base_url = 'netbox-ping'
+    default_app_config = 'netbox_ping.apps.NetBoxPingConfig'
+
 config = Config

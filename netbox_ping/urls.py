@@ -12,4 +12,5 @@ urlpatterns = (
     path('scan-subnet/<int:prefix_id>/', views.ScanSubnetView.as_view(), name='scan_subnet'),
     path('initialize/', views.InitializePluginView.as_view(), name='initialize_plugin'),
     path('scan-all/', views.ScanAllView.as_view(), name='scan_all'),
+    path('update-settings/', views.UpdateSettingsView.as_view(), name='update_settings'),
 )

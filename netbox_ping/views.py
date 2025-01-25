@@ -9,10 +9,12 @@ from ipaddress import ip_network, ip_interface
 import subprocess
 import concurrent.futures
 from datetime import date
+from django.http import JsonResponse
 
 from .utils import UnifiedInterface, natural_keys
 from .forms import InterfaceComparisonForm
 from extras.models import Tag
+from .models import PluginSettingsModel
 
 config = settings.PLUGINS_CONFIG['netbox_ping']
 
@@ -148,6 +150,7 @@ class PingHomeView(LoginRequiredMixin, PermissionRequiredMixin, View):
         }
 
     def get(self, request):
+        settings = PluginSettingsModel.get_settings()
         prefixes = Prefix.objects.all()
         prefix_data = []
 
@@ -168,7 +171,14 @@ class PingHomeView(LoginRequiredMixin, PermissionRequiredMixin, View):
             'model': Prefix,
             'table': None,
             'actions': ('add', 'import', 'export', 'bulk_edit', 'bulk_delete'),
+            'update_tags': settings.update_tags,
         })
+
+    def post(self, request):
+        settings = PluginSettingsModel.get_settings()
+        settings.update_tags = request.POST.get('update_tags') == 'true'
+        settings.save()
+        return JsonResponse({'status': 'success'})
 
 class PingSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """View for pinging existing IPs in a subnet"""
@@ -177,65 +187,82 @@ class PingSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
     def ping_ip(self, ip):
         """Ping a single IP address"""
         try:
-            result = subprocess.run(['ping', '-c', '1', '-W', '1', str(ip)], 
-                                  capture_output=True, 
-                                  timeout=2)
-            return str(ip), result.returncode == 0
+            # Try multiple pings to be more accurate
+            for _ in range(2):  # Try twice
+                result = subprocess.run(['ping', '-c', '1', '-W', '1', str(ip)], 
+                                    capture_output=True, 
+                                    timeout=2)
+                if result.returncode == 0:
+                    return str(ip), True
+            return str(ip), False
         except:
             return str(ip), False
 
     def get(self, request, prefix_id):
+        # Get update_tags parameter
+        update_tags = request.GET.get('update_tags', 'true').lower() == 'true'
+        
         prefix = get_object_or_404(Prefix, id=prefix_id)
         messages.info(request, f"🔍 Starting status check for subnet {prefix.prefix}")
 
         try:
             online_tag = Tag.objects.get(slug='online')
-        except Tag.DoesNotExist:
-            online_tag = Tag.objects.create(name='online', slug='online')
-            
-        try:
             offline_tag = Tag.objects.get(slug='offline')
         except Tag.DoesNotExist:
-            offline_tag = Tag.objects.create(name='offline', slug='offline')
+            messages.error(request, "Required tags not found. Please initialize the plugin first.")
+            return redirect('plugins:netbox_ping:ping_home')
 
-        # Get only existing IPs in the subnet
-        network = ip_network(prefix.prefix)
-        all_ips = IPAddress.objects.filter(address__startswith=str(network.network_address).replace('.0', '.'))
+        # Get all child IPs using NetBox's method
+        all_ips = prefix.get_child_ips()
         
-        existing_ips = {}
-        status_changes = []
-        for ip in all_ips:
-            ip_net = str(ip_interface(ip.address).ip)
-            existing_ips[ip_net] = ip
-
-        if not existing_ips:
-            messages.warning(request, "No existing IPs found in this subnet")
+        if not all_ips.exists():
+            messages.warning(request, "No child IPs found in this subnet")
             return redirect('ipam:prefix', pk=prefix_id)
 
-        # Only ping IPs that exist in the database
+        status_changes = []
+        processed_ips = set()  # Keep track of processed IPs
+
+        # Ping all IPs
         with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-            future_to_ip = {executor.submit(self.ping_ip, ip_str): ip_str 
-                          for ip_str in existing_ips.keys()}
+            future_to_ip = {
+                executor.submit(self.ping_ip, str(ip_interface(ip.address).ip)): ip 
+                for ip in all_ips
+            }
             
             for future in concurrent.futures.as_completed(future_to_ip):
+                ip_obj = future_to_ip[future]
                 ip_str, is_alive = future.result()
-                ip_obj = existing_ips[ip_str]
                 
-                # Update IP status
+                # Skip if we've already processed this IP
+                if ip_str in processed_ips:
+                    continue
+                processed_ips.add(ip_str)
+
+                # Initialize custom_field_data if needed
+                if not ip_obj.custom_field_data:
+                    ip_obj.custom_field_data = {}
+                
                 old_status = ip_obj.custom_field_data.get('Up_Down', None)
                 ip_obj.custom_field_data['Up_Down'] = is_alive
                 
                 if is_alive:
-                    ip_obj.tags.remove(offline_tag)
-                    ip_obj.tags.add(online_tag)
+                    if update_tags:
+                        ip_obj.tags.remove(offline_tag)
+                        ip_obj.tags.add(online_tag)
+                    status = "🟢 up"
                 else:
-                    ip_obj.tags.remove(online_tag)
-                    ip_obj.tags.add(offline_tag)
+                    if update_tags:
+                        ip_obj.tags.remove(online_tag)
+                        ip_obj.tags.add(offline_tag)
+                    status = "🔴 down"
                 
                 ip_obj.save()
                 
-                if old_status != is_alive:
-                    status_changes.append(f"{ip_str}: {'🟢 up' if is_alive else '🔴 down'}")
+                # Record status changes
+                if old_status is None:
+                    status_changes.append(f"{ip_str}: {status} (initial check)")
+                elif old_status != is_alive:
+                    status_changes.append(f"{ip_str}: {status}")
 
         # Show summary message
         if status_changes:
@@ -428,3 +455,12 @@ class ScanAllView(LoginRequiredMixin, PermissionRequiredMixin, View):
 
         messages.success(request, f"✅ Completed scanning all prefixes. Discovered {total_discovered} new IPs.")
         return redirect('plugins:netbox_ping:ping_home')
+
+class UpdateSettingsView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "ipam.view_prefix"
+
+    def post(self, request):
+        settings = PluginSettingsModel.get_settings()
+        settings.update_tags = request.POST.get('update_tags') == 'true'
+        settings.save()
+        return JsonResponse({'status': 'success'})
