@@ -42,10 +42,9 @@ def initialize_plugin():
     link, _ = CustomLink.objects.get_or_create(
         name='Ping IP',
         link_text='Ping',
-        link_url='/plugins/netbox-ping/ping-ip/{{ object }}/',
+        link_url='plugins/netbox-ping/ping-ip/{{ object.address }}/',
         weight=100
     )
-    # Get and add the object type
     ipaddress_type = ObjectType.objects.get(app_label='ipam', model='ipaddress')
     link.object_types.add(ipaddress_type)
 
@@ -53,10 +52,9 @@ def initialize_plugin():
     link, _ = CustomLink.objects.get_or_create(
         name='Ping Subnet',
         link_text='Ping Subnet',
-        link_url='/plugins/netbox-ping/scan-prefix/{{ object }}/?action=ping',
+        link_url='plugins/netbox-ping/scan-prefix/{{ object.prefix }}/?action=ping',
         weight=100
     )
-    # Get and add the object type
     prefix_type = ObjectType.objects.get(app_label='ipam', model='prefix')
     link.object_types.add(prefix_type)
 
@@ -64,10 +62,9 @@ def initialize_plugin():
     link, _ = CustomLink.objects.get_or_create(
         name='Discover IPs',
         link_text='Discover IPs',
-        link_url='/plugins/netbox-ping/scan-prefix/{{ object }}/?action=scan',
+        link_url='plugins/netbox-ping/scan-prefix/{{ object.prefix }}/?action=scan',
         weight=200
     )
-    # Get and add the object type
     link.object_types.add(prefix_type)
 
     # Create Up_Down custom field

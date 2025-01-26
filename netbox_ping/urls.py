@@ -13,6 +13,6 @@ urlpatterns = [
     path('initialize/', views.InitializePluginView.as_view(), name='initialize_plugin'),
     path('scan-all/', views.ScanAllView.as_view(), name='scan_all'),
     path('update-settings/', views.UpdateSettingsView.as_view(), name='update_settings'),
-    path('ping-ip/<str:ip_address>/', views.PingSingleIPView.as_view(), name='ping_ip'),
-    path('scan-prefix/<str:prefix>/', views.ScanSinglePrefixView.as_view(), name='scan_prefix'),
+    path('ping-ip/<path:ip_address>/', views.PingSingleIPView.as_view(), name='ping_ip'),
+    path('scan-prefix/<path:prefix>/', views.ScanSinglePrefixView.as_view(), name='scan_prefix'),
 ]
