@@ -637,3 +637,54 @@ class UpdateSettingsView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 'update_tags': settings.update_tags
             }
         })
+
+class PingSingleIPView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """View for pinging a single IP address"""
+    permission_required = "ipam.view_ipaddress"
+
+    def get(self, request, ip_address):
+        try:
+            # Split IP and prefix length
+            ip, prefix_length = ip_address.split('/')
+            ip_obj = get_object_or_404(IPAddress, address=f"{ip}/{prefix_length}")
+            
+            # Reuse existing ping and lookup logic
+            ping_view = PingSubnetView()
+            ip_str, is_alive, hostname = ping_view.ping_and_lookup_ip(ip_obj.address.ip)
+            
+            if is_alive:
+                status = "🟢 up"
+                if hostname:
+                    status += f" ({hostname})"
+                messages.success(request, f"IP {ip_str}: {status}")
+            else:
+                messages.warning(request, f"IP {ip_str}: 🔴 down")
+            
+            return redirect('ipam:ipaddress', pk=ip_obj.pk)
+            
+        except Exception as e:
+            messages.error(request, f"Error pinging IP: {str(e)}")
+            return redirect('ipam:ipaddress_list')
+
+class ScanSinglePrefixView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """View for scanning a single prefix"""
+    permission_required = "ipam.view_prefix"
+
+    def get(self, request, prefix):
+        try:
+            # Get prefix object
+            prefix_obj = get_object_or_404(Prefix, prefix=prefix)
+            
+            # Determine which action to take based on query parameter
+            action = request.GET.get('action', 'ping')
+            
+            if action == 'ping':
+                # Use existing ping logic
+                return PingSubnetView().get(request, prefix_obj.pk)
+            else:
+                # Use existing scan logic
+                return ScanSubnetView().get(request, prefix_obj.pk)
+                
+        except Exception as e:
+            messages.error(request, f"Error scanning prefix: {str(e)}")
+            return redirect('ipam:prefix_list')

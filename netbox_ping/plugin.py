@@ -1,9 +1,10 @@
 from django.contrib.contenttypes.models import ContentType
 from extras.api.serializers import CustomFieldSerializer, TagSerializer
-from extras.models import CustomField, Tag
-from ipam.models import IPAddress
+from extras.models import CustomField, Tag, CustomLink
+from ipam.models import IPAddress, Prefix
 from rest_framework.exceptions import ValidationError
 from extras.choices import CustomFieldTypeChoices
+from core.models import ObjectType
 
 def initialize_plugin():
     """Initialize plugin settings."""
@@ -33,10 +34,43 @@ def initialize_plugin():
         }
     )
 
-    # Get IPAddress content type
+    # Get the content types we need
     ipaddress_ct = ContentType.objects.get(app_label='ipam', model='ipaddress')
+    prefix_ct = ContentType.objects.get(app_label='ipam', model='prefix')
+    
+    # Create "Ping" button for IP Address pages
+    link, _ = CustomLink.objects.get_or_create(
+        name='Ping IP',
+        link_text='Ping',
+        link_url='/plugins/netbox-ping/ping-ip/{{ object }}/',
+        weight=100
+    )
+    # Get and add the object type
+    ipaddress_type = ObjectType.objects.get(app_label='ipam', model='ipaddress')
+    link.object_types.add(ipaddress_type)
 
-    # Create custom fields
+    # Create "Ping Subnet" button for Prefix pages
+    link, _ = CustomLink.objects.get_or_create(
+        name='Ping Subnet',
+        link_text='Ping Subnet',
+        link_url='/plugins/netbox-ping/scan-prefix/{{ object }}/?action=ping',
+        weight=100
+    )
+    # Get and add the object type
+    prefix_type = ObjectType.objects.get(app_label='ipam', model='prefix')
+    link.object_types.add(prefix_type)
+
+    # Create "Discover IPs" button for Prefix pages
+    link, _ = CustomLink.objects.get_or_create(
+        name='Discover IPs',
+        link_text='Discover IPs',
+        link_url='/plugins/netbox-ping/scan-prefix/{{ object }}/?action=scan',
+        weight=200
+    )
+    # Get and add the object type
+    link.object_types.add(prefix_type)
+
+    # Create Up_Down custom field
     up_down_field, _ = CustomField.objects.get_or_create(
         name='Up_Down',
         defaults={
@@ -46,6 +80,14 @@ def initialize_plugin():
         }
     )
 
+    # Get IPAddress content type
+    ipaddress_ct = ContentType.objects.get(app_label='ipam', model='ipaddress')
+
+    # Add content type to custom fields
+    if not up_down_field.object_types.filter(id=ipaddress_ct.id).exists():
+        up_down_field.object_types.add(ipaddress_ct)
+
+    # Create custom fields
     dns_name_field, _ = CustomField.objects.get_or_create(
         name='dns_name',
         defaults={
