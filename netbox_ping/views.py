@@ -11,12 +11,14 @@ import concurrent.futures
 from datetime import date
 from django.http import JsonResponse
 
-from .utils import UnifiedInterface, natural_keys
+from .utils import UnifiedInterface, natural_keys, perform_dns_lookup
 from .forms import InterfaceComparisonForm
 from extras.models import Tag
 from .models import PluginSettingsModel
+import logging
 
 config = settings.PLUGINS_CONFIG['netbox_ping']
+logger = logging.getLogger('netbox.netbox_ping')
 
 
 class InterfaceComparisonView(LoginRequiredMixin, PermissionRequiredMixin, View):
@@ -171,6 +173,7 @@ class PingHomeView(LoginRequiredMixin, PermissionRequiredMixin, View):
             'model': Prefix,
             'table': None,
             'actions': ('add', 'import', 'export', 'bulk_edit', 'bulk_delete'),
+            'settings': settings,
             'update_tags': settings.update_tags,
         })
 
@@ -185,53 +188,41 @@ class PingSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
     permission_required = "ipam.view_prefix"
 
     def ping_ip(self, ip):
-        """Ping a single IP address"""
+        """Ping an IP address and return tuple of (ip_str, is_alive)"""
         try:
-            # Try multiple pings to be more accurate
-            for _ in range(2):  # Try twice
-                result = subprocess.run(['ping', '-c', '1', '-W', '1', str(ip)], 
-                                    capture_output=True, 
-                                    timeout=2)
-                if result.returncode == 0:
-                    return str(ip), True
-            return str(ip), False
-        except:
+            subprocess.run(['ping', '-c', '1', '-W', '1', str(ip)], 
+                         stdout=subprocess.DEVNULL, 
+                         stderr=subprocess.DEVNULL, 
+                         check=True)
+            return str(ip), True
+        except subprocess.CalledProcessError:
             return str(ip), False
 
     def get(self, request, prefix_id):
-        # Get update_tags parameter
-        update_tags = request.GET.get('update_tags', 'true').lower() == 'true'
+        prefix = get_object_or_404(Prefix.objects.filter(id=prefix_id))
+        settings = PluginSettingsModel.get_settings()
+        update_tags = settings.update_tags
         
-        prefix = get_object_or_404(Prefix, id=prefix_id)
+        # Get tags
+        online_tag = Tag.objects.get(name='online')
+        offline_tag = Tag.objects.get(name='offline')
+        
         messages.info(request, f"🔍 Starting status check for subnet {prefix.prefix}")
-
-        try:
-            online_tag = Tag.objects.get(slug='online')
-            offline_tag = Tag.objects.get(slug='offline')
-        except Tag.DoesNotExist:
-            messages.error(request, "Required tags not found. Please initialize the plugin first.")
-            return redirect('plugins:netbox_ping:ping_home')
-
-        # Get all child IPs using NetBox's method
-        all_ips = prefix.get_child_ips()
         
-        if not all_ips.exists():
-            messages.warning(request, "No child IPs found in this subnet")
-            return redirect('ipam:prefix', pk=prefix_id)
-
+        # Track processed IPs and status changes
+        processed_ips = set()
         status_changes = []
-        processed_ips = set()  # Keep track of processed IPs
-
-        # Ping all IPs
+        
+        # Get all IPs in the prefix
+        ip_addresses = prefix.get_child_ips()
+        
+        # Ping all IPs in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-            future_to_ip = {
-                executor.submit(self.ping_ip, str(ip_interface(ip.address).ip)): ip 
-                for ip in all_ips
-            }
+            future_to_ip = {executor.submit(self.ping_and_lookup_ip, ip.address.ip): ip for ip in ip_addresses}
             
             for future in concurrent.futures.as_completed(future_to_ip):
                 ip_obj = future_to_ip[future]
-                ip_str, is_alive = future.result()
+                ip_str, is_alive, hostname = future.result()
                 
                 # Skip if we've already processed this IP
                 if ip_str in processed_ips:
@@ -245,11 +236,23 @@ class PingSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 old_status = ip_obj.custom_field_data.get('Up_Down', None)
                 ip_obj.custom_field_data['Up_Down'] = is_alive
                 
+                # Update DNS name if found
+                if hostname:
+                    old_hostname = ip_obj.dns_name or ''  # Handle None case
+                    ip_obj.dns_name = hostname.lower()  # Ensure lowercase
+                    if old_hostname.lower() != hostname.lower():
+                        logger.info(f"Updated DNS name for {ip_str}: {hostname}")
+                else:
+                    # Set empty string instead of None
+                    ip_obj.dns_name = ''
+                
                 if is_alive:
                     if update_tags:
                         ip_obj.tags.remove(offline_tag)
                         ip_obj.tags.add(online_tag)
                     status = "🟢 up"
+                    if hostname:
+                        status += f" ({hostname})"
                 else:
                     if update_tags:
                         ip_obj.tags.remove(online_tag)
@@ -271,6 +274,84 @@ class PingSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
             messages.success(request, f"✅ Status check complete - No changes detected")
 
         return redirect('ipam:prefix', pk=prefix_id)
+
+    def ping_and_lookup_ip(self, ip):
+        """Ping IP and perform DNS lookup"""
+        settings = PluginSettingsModel.get_settings()
+        
+        # First ping the IP
+        ip_str, is_alive = self.ping_ip(ip)
+        
+        # Initialize dns_name as None
+        dns_name = None
+        
+        try:
+            # Try to get existing IP object
+            ip_obj = IPAddress.objects.get(address=str(ip))
+            
+            # Always try DNS lookup if IP is alive
+            if is_alive:
+                dns_servers = [
+                    settings.dns_server1,
+                    settings.dns_server2,
+                    settings.dns_server3
+                ]
+                dns_servers = [s for s in dns_servers if s]  # Remove empty entries
+                
+                hostname, verified = perform_dns_lookup(str(ip), dns_servers)
+                if hostname:
+                    dns_name = hostname
+                    # Update the built-in dns_name field with a valid string
+                    ip_obj.dns_name = hostname.lower()  # Ensure lowercase
+                else:
+                    # Set empty string instead of None for dns_name
+                    ip_obj.dns_name = ''
+                
+                ip_obj.custom_field_data['Up_Down'] = True
+                ip_obj.save()
+                
+                # Add online tag
+                online_tag = Tag.objects.get(name='online')
+                ip_obj.tags.add(online_tag)
+                
+                # Remove offline tag if it exists
+                try:
+                    offline_tag = Tag.objects.get(name='offline')
+                    ip_obj.tags.remove(offline_tag)
+                except Tag.DoesNotExist:
+                    pass
+            else:
+                # IP is offline
+                ip_obj.custom_field_data['Up_Down'] = False
+                # Set empty string instead of None for dns_name
+                ip_obj.dns_name = ''
+                ip_obj.save()
+                
+                # Add offline tag
+                offline_tag = Tag.objects.get(name='offline')
+                ip_obj.tags.add(offline_tag)
+                
+                # Remove online tag if it exists
+                try:
+                    online_tag = Tag.objects.get(name='online')
+                    ip_obj.tags.remove(online_tag)
+                except Tag.DoesNotExist:
+                    pass
+        
+        except IPAddress.DoesNotExist:
+            # IP doesn't exist in NetBox yet - just return the ping/DNS results
+            if is_alive:
+                dns_servers = [
+                    settings.dns_server1,
+                    settings.dns_server2,
+                    settings.dns_server3
+                ]
+                dns_servers = [s for s in dns_servers if s]
+                hostname, verified = perform_dns_lookup(str(ip), dns_servers)
+                if hostname:
+                    dns_name = hostname
+        
+        return ip_str, is_alive, dns_name
 
 def get_existing_ip(ip_str, prefix_length):
     """Helper function to check if IP exists (case-insensitive)"""
@@ -352,6 +433,84 @@ class ScanSubnetView(LoginRequiredMixin, PermissionRequiredMixin, View):
             messages.info(request, "No new IPs discovered")
 
         return redirect('ipam:prefix', pk=prefix_id)
+
+    def ping_and_lookup_ip(self, ip):
+        """Ping IP and perform DNS lookup"""
+        settings = PluginSettingsModel.get_settings()
+        
+        # First ping the IP
+        ip_str, is_alive = self.ping_ip(ip)
+        
+        # Initialize dns_name as None
+        dns_name = None
+        
+        try:
+            # Try to get existing IP object
+            ip_obj = IPAddress.objects.get(address=str(ip))
+            
+            # Always try DNS lookup if IP is alive
+            if is_alive:
+                dns_servers = [
+                    settings.dns_server1,
+                    settings.dns_server2,
+                    settings.dns_server3
+                ]
+                dns_servers = [s for s in dns_servers if s]  # Remove empty entries
+                
+                hostname, verified = perform_dns_lookup(str(ip), dns_servers)
+                if hostname:
+                    dns_name = hostname
+                    # Update the built-in dns_name field with a valid string
+                    ip_obj.dns_name = hostname.lower()  # Ensure lowercase
+                else:
+                    # Set empty string instead of None for dns_name
+                    ip_obj.dns_name = ''
+                
+                ip_obj.custom_field_data['Up_Down'] = True
+                ip_obj.save()
+                
+                # Add online tag
+                online_tag = Tag.objects.get(name='online')
+                ip_obj.tags.add(online_tag)
+                
+                # Remove offline tag if it exists
+                try:
+                    offline_tag = Tag.objects.get(name='offline')
+                    ip_obj.tags.remove(offline_tag)
+                except Tag.DoesNotExist:
+                    pass
+            else:
+                # IP is offline
+                ip_obj.custom_field_data['Up_Down'] = False
+                # Set empty string instead of None for dns_name
+                ip_obj.dns_name = ''
+                ip_obj.save()
+                
+                # Add offline tag
+                offline_tag = Tag.objects.get(name='offline')
+                ip_obj.tags.add(offline_tag)
+                
+                # Remove online tag if it exists
+                try:
+                    online_tag = Tag.objects.get(name='online')
+                    ip_obj.tags.remove(online_tag)
+                except Tag.DoesNotExist:
+                    pass
+        
+        except IPAddress.DoesNotExist:
+            # IP doesn't exist in NetBox yet - just return the ping/DNS results
+            if is_alive:
+                dns_servers = [
+                    settings.dns_server1,
+                    settings.dns_server2,
+                    settings.dns_server3
+                ]
+                dns_servers = [s for s in dns_servers if s]
+                hostname, verified = perform_dns_lookup(str(ip), dns_servers)
+                if hostname:
+                    dns_name = hostname
+        
+        return ip_str, is_alive, dns_name
 
 class InitializePluginView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """View for manually initializing plugin custom fields and tags"""
@@ -462,5 +621,19 @@ class UpdateSettingsView(LoginRequiredMixin, PermissionRequiredMixin, View):
     def post(self, request):
         settings = PluginSettingsModel.get_settings()
         settings.update_tags = request.POST.get('update_tags') == 'true'
+        settings.dns_server1 = request.POST.get('dns_server1', '').strip()
+        settings.dns_server2 = request.POST.get('dns_server2', '').strip()
+        settings.dns_server3 = request.POST.get('dns_server3', '').strip()
+        settings.perform_dns_lookup = request.POST.get('perform_dns_lookup') == 'true'
         settings.save()
-        return JsonResponse({'status': 'success'})
+        
+        return JsonResponse({
+            'status': 'success',
+            'data': {
+                'dns_server1': settings.dns_server1,
+                'dns_server2': settings.dns_server2,
+                'dns_server3': settings.dns_server3,
+                'perform_dns_lookup': settings.perform_dns_lookup,
+                'update_tags': settings.update_tags
+            }
+        })

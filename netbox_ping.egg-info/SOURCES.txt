@@ -3,6 +3,7 @@ README.md
 pyproject.toml
 setup.py
 netbox_ping/__init__.py
+netbox_ping/apps.py
 netbox_ping/config.py
 netbox_ping/forms.py
 netbox_ping/hooks.py
@@ -20,10 +21,19 @@ netbox_ping.egg-info/PKG-INFO
 netbox_ping.egg-info/SOURCES.txt
 netbox_ping.egg-info/dependency_links.txt
 netbox_ping.egg-info/not-zip-safe
+netbox_ping.egg-info/requires.txt
 netbox_ping.egg-info/top_level.txt
+netbox_ping/api/__init__.py
+netbox_ping/api/serializers.py
+netbox_ping/api/urls.py
+netbox_ping/api/views.py
 netbox_ping/migrations/0001_initial.py
+netbox_ping/migrations/0002_add_dns_fields.py
+netbox_ping/migrations/0003_add_dns_name_field.py
 netbox_ping/migrations/__init__.py
 netbox_ping/migrations/__pycache__/0001_initial.cpython-312.pyc
+netbox_ping/migrations/__pycache__/0002_add_dns_fields.cpython-312.pyc
+netbox_ping/migrations/__pycache__/0003_add_dns_name_field.cpython-312.pyc
 netbox_ping/migrations/__pycache__/__init__.cpython-312.pyc
 netbox_ping/templates/netbox_ping/compare_interfaces_button.html
 netbox_ping/templates/netbox_ping/interface_comparison.html

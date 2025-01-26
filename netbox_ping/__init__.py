@@ -4,7 +4,7 @@ class Config(PluginConfig):
     name = 'netbox_ping'
     verbose_name = 'NetBox Ping'
     description = 'Ping IPs and subnets'
-    version = '0.3'
+    version = '0.48'
     author = 'Christian Rose'
     default_settings = {
         'coming_soon': True

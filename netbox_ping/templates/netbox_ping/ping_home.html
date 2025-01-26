@@ -117,6 +117,40 @@
         </div>
     </div>
 </div>
+
+<div class="card">
+    <h5 class="card-header">DNS Settings</h5>
+    <div class="card-body">
+        <form id="dnsSettingsForm">
+            {% csrf_token %}
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label for="dns_server1">Primary DNS Server</label>
+                    <input type="text" class="form-control" id="dns_server1" name="dns_server1" 
+                           value="{{ settings.dns_server1|default:'' }}" placeholder="8.8.8.8">
+                </div>
+                <div class="col-md-4">
+                    <label for="dns_server2">Secondary DNS Server</label>
+                    <input type="text" class="form-control" id="dns_server2" name="dns_server2" 
+                           value="{{ settings.dns_server2|default:'' }}" placeholder="8.8.4.4">
+                </div>
+                <div class="col-md-4">
+                    <label for="dns_server3">Tertiary DNS Server</label>
+                    <input type="text" class="form-control" id="dns_server3" name="dns_server3" 
+                           value="{{ settings.dns_server3|default:'' }}">
+                </div>
+            </div>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="perform_dns_lookup" 
+                       name="perform_dns_lookup" {% if settings.perform_dns_lookup %}checked{% endif %}>
+                <label class="form-check-label" for="perform_dns_lookup">
+                    Perform DNS Lookups
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary">Save DNS Settings</button>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block javascript %}
@@ -165,5 +199,39 @@ document.getElementById('updateTagsToggle').addEventListener('change', function(
 
 // Set initial state from server
 document.getElementById('updateTagsToggle').checked = {{ update_tags|yesno:"true,false" }};
+
+// Add DNS settings form handler
+document.getElementById('dnsSettingsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new URLSearchParams();
+    formData.append('dns_server1', document.getElementById('dns_server1').value);
+    formData.append('dns_server2', document.getElementById('dns_server2').value);
+    formData.append('dns_server3', document.getElementById('dns_server3').value);
+    formData.append('perform_dns_lookup', document.getElementById('perform_dns_lookup').checked);
+    formData.append('update_tags', document.getElementById('updateTagsToggle').checked);
+    
+    fetch("{% url 'plugins:netbox_ping:update_settings' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: formData.toString()
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Show success message
+            const message = document.createElement('div');
+            message.className = 'alert alert-success';
+            message.textContent = 'Settings saved successfully!';
+            document.getElementById('dnsSettingsForm').prepend(message);
+            
+            // Remove message after 3 seconds
+            setTimeout(() => message.remove(), 3000);
+        }
+    });
+});
 </script>
 {% endblock %} 
