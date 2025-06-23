@@ -137,6 +137,7 @@ endblock %} {% block head %}
                 <th>VRF</th>
                 <th>Tenant</th>
                 <th>Ping Subnet</th>
+                <th>Result of Ping</th>
               </tr>
             </thead>
             <tbody>
@@ -157,15 +158,13 @@ endblock %} {% block head %}
                     onclick="pingSubnet(this, {{ item.prefix.id }}, '{{ item.prefix.prefix }}')"
                     data-prefix-id="{{ item.prefix.id }}"
                   >
-                    <i class="mdi mdi-lan"></i> Ping All IPs
+                    <i class="mdi mdi-lan"></i> Ping Subnet
                   </button>
-                  <div
-                    class="ping-result"
-                    id="result-{{ item.prefix.id }}"
-                    style="display: none"
+                </td>
+                <td class="result-column" id="result-{{ item.prefix.id }}">
+                  <span class="text-muted"
+                    >Click "Ping Subnet" to see results</span
                   >
-                    <!-- Results will be displayed here -->
-                  </div>
                 </td>
               </tr>
               {% endfor %}
