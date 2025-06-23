@@ -1,12 +1,13 @@
 # NetBox Ping Plugin
+
 ![Python](https://img.shields.io/badge/python-3.12.3-blue.svg)
 ![NetBox](https://img.shields.io/badge/netbox-4.2.2-blue.svg)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 A NetBox plugin for pinging and discovering IPs in your network.
 
-
 ## Features
+
 - Ping IPs and subnets directly from NetBox
 - Auto-discover new IPs
 - Track IP status with custom fields and tags
@@ -14,12 +15,15 @@ A NetBox plugin for pinging and discovering IPs in your network.
 - Dark mode compatible UI
 
 ## Installation
+
 ```bash
 pip install netbox-ping
 ```
 
 ## Configuration
+
 Add to your `configuration.py`:
+
 ```python
 PLUGINS = ['netbox_ping']
 
@@ -31,6 +35,7 @@ PLUGINS_CONFIG = {
 ```
 
 ## Usage
+
 1. Install the plugin
 2. Navigate to Plugins > NetBox Ping
 3. Click "Create Required Fields & Tags"
@@ -87,8 +92,8 @@ PLUGINS_CONFIG = {
 ## Usage
 
 1. Navigate to the "Plugins" menu in NetBox
-2. Select "Network Tools" from the dropdown
-3. You'll see a list of all prefixes in your NetBox instance
+2. Select "IP Pinger" from the NetBox Ping dropdown
+3. You'll see the IP search interface and prefix list
 4. Two actions are available for each prefix:
    - **Check Status**: Checks all existing IPs in the prefix
    - **Scan Subnet**: Discovers and adds new active IPs
@@ -102,6 +107,7 @@ PLUGINS_CONFIG = {
 ## Configuration
 
 No additional configuration is required. The plugin will automatically:
+
 - Create required custom fields
 - Create online/offline tags
 - Set up necessary permissions
@@ -109,6 +115,7 @@ No additional configuration is required. The plugin will automatically:
 ## Permissions
 
 Users need the following permissions to use the plugin:
+
 - `ipam.view_prefix`
 - `ipam.view_ipaddress`
 
@@ -117,12 +124,14 @@ Users need the following permissions to use the plugin:
 To set up a development environment:
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/yourusername/netbox-ping.git
    cd netbox-ping
    ```
 
 2. Create a virtual environment:
+
    ```bash
    python3 -m venv venv
    source venv/bin/activate
@@ -144,6 +153,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Support
 
 If you have any questions or need help, please:
+
 1. Open an issue on GitHub
 2. Check existing issues for answers
 3. Contact the maintainer
@@ -155,4 +165,3 @@ If you have any questions or need help, please:
 - I'm not a good python developer, so this is probably not the best way to do this.
 - The plugin `netbox-interface-synchronization` gave me a lot of inspiration, code wise, as the offical NetBox development repo had some issues, i couldn't get around.
 - The plugin [netbox-interface-synchronization](https://github.com/NetTech2001/netbox-interface-synchronization/tree/main) is a great plugin, and i recommend using it if you need to synchronize interfaces.
-

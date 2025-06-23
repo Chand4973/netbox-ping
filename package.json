@@ -1,0 +1,20 @@
+{
+  "name": "netbox-ping-dev",
+  "version": "1.0.0",
+  "description": "Development environment for NetBox Ping Plugin",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx http-server . -p 3000 -o",
+    "start": "npx http-server . -p 3000"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "keywords": [
+    "netbox",
+    "plugin",
+    "development"
+  ],
+  "author": "NetBox Ping Plugin",
+  "license": "Apache-2.0"
+}
