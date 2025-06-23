@@ -55,6 +55,18 @@
     font-family: monospace;
     font-size: 0.9em;
   }
+  .ping-result-detail {
+    font-family: monospace;
+    font-size: 0.85em;
+    color: #6c757d;
+    min-width: 150px;
+  }
+  .ping-result-success {
+    color: #28a745;
+  }
+  .ping-result-error {
+    color: #dc3545;
+  }
 </style>
 {% endblock %} {% block content %} {% csrf_token %}
 
@@ -104,6 +116,10 @@
                 <i class="mdi mdi-lan"></i> Ping
               </button>
               <div class="ping-status" id="status-{{ ip.id }}"></div>
+              <div
+                class="ping-result-detail ms-2"
+                id="result-detail-{{ ip.id }}"
+              ></div>
             </div>
           </div>
           {% endfor %}
@@ -181,6 +197,9 @@
   // Function to ping a single IP
   function pingSingleIP(button, ipAddress) {
     const statusDiv = button.parentElement.querySelector(".ping-status");
+    const resultDetailDiv = button.parentElement.querySelector(
+      ".ping-result-detail",
+    );
     const originalButtonContent = button.innerHTML;
 
     // Show loading state
@@ -188,6 +207,9 @@
     button.innerHTML =
       '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
     statusDiv.innerHTML = "Pinging...";
+    if (resultDetailDiv) {
+      resultDetailDiv.innerHTML = "";
+    }
 
     // Send AJAX request
     fetch("{% url 'plugins:netbox_ping:ping_ip_ajax' %}", {
@@ -207,18 +229,36 @@
         if (data.success) {
           if (data.is_alive) {
             statusDiv.innerHTML = '<span class="ip-online">🟢 Online</span>';
+            if (resultDetailDiv && data.result_message) {
+              resultDetailDiv.innerHTML =
+                '<span class="ping-result-success">' +
+                data.result_message +
+                "</span>";
+            }
           } else {
             statusDiv.innerHTML = '<span class="ip-offline">🔴 Offline</span>';
+            if (resultDetailDiv && data.result_message) {
+              resultDetailDiv.innerHTML =
+                '<span class="ping-result-error">' +
+                data.result_message +
+                "</span>";
+            }
           }
         } else {
           statusDiv.innerHTML =
             '<span class="text-danger">Error: ' + data.message + "</span>";
+          if (resultDetailDiv) {
+            resultDetailDiv.innerHTML = "";
+          }
         }
       })
       .catch((error) => {
         button.disabled = false;
         button.innerHTML = originalButtonContent;
         statusDiv.innerHTML = '<span class="text-danger">Network error</span>';
+        if (resultDetailDiv) {
+          resultDetailDiv.innerHTML = "";
+        }
         console.error("Error:", error);
       });
   }

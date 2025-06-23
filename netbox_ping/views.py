@@ -10,6 +10,7 @@ import subprocess
 import concurrent.futures
 from datetime import date
 from django.http import JsonResponse
+import re
 
 from .utils import UnifiedInterface, natural_keys, perform_dns_lookup
 from .forms import InterfaceComparisonForm
@@ -806,15 +807,50 @@ class PingIPAjaxView(LoginRequiredMixin, PermissionRequiredMixin, View):
     permission_required = "ipam.view_ipaddress"
 
     def ping_ip(self, ip):
-        """Ping an IP address and return tuple of (ip_str, is_alive)"""
+        """Ping an IP address and return tuple of (ip_str, is_alive, error_message)"""
         try:
-            subprocess.run(['ping', '-c', '1', '-W', '1', str(ip)],
-                         stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL,
-                         check=True)
-            return str(ip), True
-        except subprocess.CalledProcessError:
-            return str(ip), False
+            result = subprocess.run(['ping', '-c', '1', '-W', '1', str(ip)],
+                                  capture_output=True,
+                                  text=True,
+                                  timeout=3)
+
+            if result.returncode == 0:
+                # Success - extract round trip time from output if available
+                output = result.stdout
+                rtt_match = re.search(r'time=(\d+\.?\d*) ms', output)
+                if rtt_match:
+                    rtt = rtt_match.group(1)
+                    return str(ip), True, f"Successful (RTT: {rtt}ms)"
+                return str(ip), True, "Successful"
+            else:
+                # Failed - extract error message from output
+                error_output = result.stdout + result.stderr
+
+                # Common ping error patterns
+                if "Destination Host Unreachable" in error_output:
+                    return str(ip), False, "Destination Host Unreachable"
+                elif "Network is unreachable" in error_output:
+                    return str(ip), False, "Network is unreachable"
+                elif "No route to host" in error_output:
+                    return str(ip), False, "No route to host"
+                elif "Request timeout" in error_output or "Request timed out" in error_output:
+                    return str(ip), False, "Request timeout"
+                elif "100% packet loss" in error_output:
+                    return str(ip), False, "100% packet loss"
+                elif "Name or service not known" in error_output:
+                    return str(ip), False, "Name or service not known"
+                elif "Operation not permitted" in error_output:
+                    return str(ip), False, "Operation not permitted"
+                else:
+                    # Generic failure message
+                    return str(ip), False, "Host unreachable"
+
+        except subprocess.TimeoutExpired:
+            return str(ip), False, "Ping timeout"
+        except subprocess.CalledProcessError as e:
+            return str(ip), False, f"Ping failed (exit code {e.returncode})"
+        except Exception as e:
+            return str(ip), False, f"Error: {str(e)}"
 
     def post(self, request):
         try:
@@ -832,13 +868,14 @@ class PingIPAjaxView(LoginRequiredMixin, PermissionRequiredMixin, View):
                 ip_part = ip_address
 
             # Ping the IP
-            ip_str, is_alive = self.ping_ip(ip_part)
+            ip_str, is_alive, result_message = self.ping_ip(ip_part)
 
             return JsonResponse({
                 'success': True,
                 'ip': ip_str,
                 'is_alive': is_alive,
-                'status': 'online' if is_alive else 'offline'
+                'status': 'online' if is_alive else 'offline',
+                'result_message': result_message
             })
 
         except Exception as e:
