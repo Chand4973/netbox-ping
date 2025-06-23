@@ -1,0 +1,301 @@
+{% extends 'base/layout.html' %} {% load helpers %} {% block title %}IP Pinger{%
+endblock %} {% block head %}
+<style>
+  .progress-text {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    line-height: 20px;
+    color: var(--text-color);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+  }
+  .ping-result {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    background-color: var(--bs-light);
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .ip-online {
+    color: #28a745;
+    font-weight: bold;
+  }
+  .ip-offline {
+    color: #dc3545;
+    font-weight: bold;
+  }
+  .search-result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    margin-bottom: 5px;
+    background-color: var(--bs-white);
+  }
+  .search-result-ip {
+    font-family: monospace;
+    font-weight: bold;
+  }
+  .ping-status {
+    min-width: 100px;
+    text-align: center;
+  }
+  .spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+  }
+</style>
+{% endblock %} {% block content %} {% csrf_token %}
+
+<!-- Search Section -->
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <h5 class="card-header">
+        <i class="mdi mdi-magnify"></i> IP Search & Ping
+      </h5>
+      <div class="card-body">
+        <form method="get" class="mb-3">
+          <div class="input-group">
+            <input
+              type="text"
+              class="form-control"
+              name="search"
+              value="{{ search_query }}"
+              placeholder="Search for IP addresses (e.g., 192.168.1.1 or 192.168.1)"
+            />
+            <button class="btn btn-primary" type="submit">
+              <i class="mdi mdi-magnify"></i> Search
+            </button>
+          </div>
+        </form>
+
+        {% if search_query %}
+        <h6>Search Results for "{{ search_query }}":</h6>
+        {% if search_results %}
+        <div class="search-results">
+          {% for ip in search_results %}
+          <div class="search-result-item">
+            <div>
+              <span class="search-result-ip">{{ ip.address }}</span>
+              {% if ip.dns_name %}
+              <small class="text-muted">({{ ip.dns_name }})</small>
+              {% endif %} {% if ip.vrf %}
+              <span class="badge bg-info">{{ ip.vrf.name }}</span>
+              {% endif %}
+            </div>
+            <div class="d-flex align-items-center">
+              <button
+                class="btn btn-sm btn-success me-2"
+                onclick="pingSingleIP(this, '{{ ip.address }}')"
+                data-ip="{{ ip.address }}"
+              >
+                <i class="mdi mdi-lan"></i> Ping
+              </button>
+              <div class="ping-status" id="status-{{ ip.id }}"></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+          <i class="mdi mdi-information"></i> No IP addresses found matching "{{
+          search_query }}"
+        </div>
+        {% endif %} {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Subnet Ping Table Section -->
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <h5 class="card-header">
+        <i class="mdi mdi-target"></i> Subnet Ping Tools
+      </h5>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Prefix</th>
+                <th>Description</th>
+                <th>Site</th>
+                <th>VRF</th>
+                <th>Tenant</th>
+                <th>Ping Subnet</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in prefix_data %}
+              <tr>
+                <td>
+                  <a href="{% url 'ipam:prefix' pk=item.prefix.pk %}"
+                    >{{ item.prefix.prefix }}</a
+                  >
+                </td>
+                <td>{{ item.description }}</td>
+                <td>{{ item.site }}</td>
+                <td>{{ item.vrf }}</td>
+                <td>{{ item.tenant }}</td>
+                <td>
+                  <button
+                    class="btn btn-sm btn-primary"
+                    onclick="pingSubnet(this, {{ item.prefix.id }}, '{{ item.prefix.prefix }}')"
+                    data-prefix-id="{{ item.prefix.id }}"
+                  >
+                    <i class="mdi mdi-lan"></i> Ping All IPs
+                  </button>
+                  <div
+                    class="ping-result"
+                    id="result-{{ item.prefix.id }}"
+                    style="display: none"
+                  >
+                    <!-- Results will be displayed here -->
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %} {% block javascript %}
+<script>
+  // Function to ping a single IP
+  function pingSingleIP(button, ipAddress) {
+    const statusDiv = button.parentElement.querySelector(".ping-status");
+    const originalButtonContent = button.innerHTML;
+
+    // Show loading state
+    button.disabled = true;
+    button.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    statusDiv.innerHTML = "Pinging...";
+
+    // Send AJAX request
+    fetch("{% url 'plugins:netbox_ping:ping_ip_ajax' %}", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")
+          .value,
+      },
+      body: `ip_address=${encodeURIComponent(ipAddress)}`,
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        button.disabled = false;
+        button.innerHTML = originalButtonContent;
+
+        if (data.success) {
+          if (data.is_alive) {
+            statusDiv.innerHTML = '<span class="ip-online">🟢 Online</span>';
+          } else {
+            statusDiv.innerHTML = '<span class="ip-offline">🔴 Offline</span>';
+          }
+        } else {
+          statusDiv.innerHTML =
+            '<span class="text-danger">Error: ' + data.message + "</span>";
+        }
+      })
+      .catch((error) => {
+        button.disabled = false;
+        button.innerHTML = originalButtonContent;
+        statusDiv.innerHTML = '<span class="text-danger">Network error</span>';
+        console.error("Error:", error);
+      });
+  }
+
+  // Function to ping all IPs in a subnet
+  function pingSubnet(button, prefixId, prefixName) {
+    const resultDiv = document.getElementById(`result-${prefixId}`);
+    const originalButtonContent = button.innerHTML;
+
+    // Show loading state
+    button.disabled = true;
+    button.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Pinging...';
+    resultDiv.style.display = "block";
+    resultDiv.innerHTML = `<div class="text-info"><i class="mdi mdi-loading mdi-spin"></i> Pinging all IPs in ${prefixName}...</div>`;
+
+    // Send AJAX request
+    fetch(
+      `{% url 'plugins:netbox_ping:ping_subnet_ajax' prefix_id=0 %}`.replace(
+        "0",
+        prefixId,
+      ),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")
+            .value,
+        },
+      },
+    )
+      .then((response) => response.json())
+      .then((data) => {
+        button.disabled = false;
+        button.innerHTML = originalButtonContent;
+
+        if (data.success) {
+          let resultHTML = `<h6>Ping Results for ${data.subnet}:</h6>`;
+
+          if (data.online_ips.length > 0) {
+            resultHTML += `<div class="mb-2"><strong class="ip-online">Online IPs (${data.online_ips.length}):</strong><br>`;
+            data.online_ips.forEach((ip) => {
+              resultHTML += `<span class="ip-online">${ip}</span> `;
+            });
+            resultHTML += "</div>";
+          }
+
+          if (data.offline_ips.length > 0) {
+            resultHTML += `<div class="mb-2"><strong class="ip-offline">Offline IPs (${data.offline_ips.length}):</strong><br>`;
+            data.offline_ips.forEach((ip) => {
+              resultHTML += `<span class="ip-offline">${ip}</span> `;
+            });
+            resultHTML += "</div>";
+          }
+
+          if (data.online_ips.length === 0 && data.offline_ips.length === 0) {
+            resultHTML +=
+              '<div class="text-muted">No IPs found in this subnet.</div>';
+          } else {
+            resultHTML += `<div class="text-muted mt-2">Total: ${data.total_ips} IPs scanned</div>`;
+          }
+
+          resultDiv.innerHTML = resultHTML;
+        } else {
+          resultDiv.innerHTML = `<div class="text-danger"><i class="mdi mdi-alert"></i> ${data.message}</div>`;
+        }
+      })
+      .catch((error) => {
+        button.disabled = false;
+        button.innerHTML = originalButtonContent;
+        resultDiv.innerHTML =
+          '<div class="text-danger"><i class="mdi mdi-alert"></i> Network error occurred</div>';
+        console.error("Error:", error);
+      });
+  }
+
+  // Auto-focus search input if present
+  document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.querySelector('input[name="search"]');
+    if (searchInput && !searchInput.value) {
+      searchInput.focus();
+    }
+  });
+</script>
+{% endblock %}
