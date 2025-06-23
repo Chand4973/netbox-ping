@@ -18,6 +18,7 @@ endblock %} {% block head %}
     background-color: var(--bs-light);
     max-height: 200px;
     overflow-y: auto;
+    display: none;
   }
   .ip-online {
     color: #28a745;
@@ -48,6 +49,11 @@ endblock %} {% block head %}
   .spinner-border-sm {
     width: 1rem;
     height: 1rem;
+  }
+  .result-column {
+    min-width: 200px;
+    font-family: monospace;
+    font-size: 0.9em;
   }
 </style>
 {% endblock %} {% block content %} {% csrf_token %}
