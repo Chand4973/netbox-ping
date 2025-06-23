@@ -13,7 +13,7 @@ from urllib.parse import urlparse, parse_qs
 class PluginDevHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
-        
+
         if parsed_path.path == '/':
             self.send_dev_page()
         elif parsed_path.path == '/api/plugin-info':
@@ -23,7 +23,7 @@ class PluginDevHandler(http.server.SimpleHTTPRequestHandler):
         else:
             # Serve static files
             super().do_GET()
-    
+
     def send_dev_page(self):
         """Send the main development page."""
         html_content = """
@@ -110,7 +110,7 @@ class PluginDevHandler(http.server.SimpleHTTPRequestHandler):
                 <h1>🔌 NetBox Ping Plugin</h1>
                 <p>Development Environment - Ready for Integration</p>
             </div>
-            
+
             <div class="card status-good">
                 <h2>🚀 Plugin Status</h2>
                 <p><strong>Status:</strong> Ready for NetBox Integration</p>
@@ -119,7 +119,7 @@ class PluginDevHandler(http.server.SimpleHTTPRequestHandler):
                 <button class="btn" onclick="validatePlugin()">Validate Plugin</button>
                 <a href="/README.md" class="btn">View Documentation</a>
             </div>
-            
+
             <div class="grid">
                 <div class="card">
                     <h3>📋 Plugin Features</h3>
@@ -130,9 +130,11 @@ class PluginDevHandler(http.server.SimpleHTTPRequestHandler):
                         <li>Bulk scan operations</li>
                         <li>Dark mode compatible UI</li>
                         <li>Custom tags and fields creation</li>
+                        <li><strong>NEW:</strong> IP Pinger with search functionality</li>
+                        <li><strong>NEW:</strong> Real-time subnet ping results</li>
                     </ul>
                 </div>
-                
+
                 <div class="card">
                     <h3>🛠️ Development Info</h3>
                     <p><strong>Plugin Structure:</strong> ✅ Valid</p>
@@ -142,14 +144,14 @@ class PluginDevHandler(http.server.SimpleHTTPRequestHandler):
                     <p><strong>Python Version:</strong> 3.8+</p>
                 </div>
             </div>
-            
+
             <div class="card">
                 <h3>🔧 Integration Instructions</h3>
                 <p>This is a NetBox plugin that requires integration with a NetBox instance:</p>
-                
+
                 <h4>1. Install the Plugin</h4>
                 <div class="code">pip install -e .</div>
-                
+
                 <h4>2. Configure NetBox</h4>
                 <div class="code">
 # Add to NetBox configuration.py
@@ -161,14 +163,14 @@ PLUGINS_CONFIG = {
     }
 }
                 </div>
-                
+
                 <h4>3. Apply Migrations</h4>
                 <div class="code">python3 manage.py migrate</div>
-                
+
                 <h4>4. Start NetBox</h4>
                 <div class="code">python3 manage.py runserver</div>
             </div>
-            
+
             <div class="card">
                 <h3>📁 Plugin Structure</h3>
                 <div class="code">
@@ -184,7 +186,7 @@ netbox_ping/
 └── migrations/           # Database migrations
                 </div>
             </div>
-            
+
             <script>
                 async function validatePlugin() {
                     try {
@@ -195,7 +197,7 @@ netbox_ping/
                         alert('Validation Error: ' + error.message);
                     }
                 }
-                
+
                 // Auto-refresh plugin info every 10 seconds
                 setInterval(async () => {
                     try {
@@ -210,12 +212,12 @@ netbox_ping/
         </body>
         </html>
         """
-        
+
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
         self.wfile.write(html_content.encode())
-    
+
     def send_plugin_info(self):
         """Send plugin information as JSON."""
         plugin_info = {
@@ -225,14 +227,15 @@ netbox_ping/
             "type": "NetBox Plugin",
             "framework": "Django",
             "files_validated": True,
-            "syntax_ok": True
+            "syntax_ok": True,
+            "new_features": ["IP Pinger", "Real-time ping results", "IP search functionality"]
         }
-        
+
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.end_headers()
         self.wfile.write(json.dumps(plugin_info).encode())
-    
+
     def validate_plugin(self):
         """Validate plugin structure and respond with JSON."""
         validation_result = {
@@ -245,7 +248,7 @@ netbox_ping/
                 "pyproject_toml": os.path.exists("pyproject.toml")
             }
         }
-        
+
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.end_headers()
@@ -253,18 +256,18 @@ netbox_ping/
 
 def main():
     PORT = 3000
-    
+
     print(f"🔌 NetBox Ping Plugin Development Server")
     print(f"📡 Starting server on http://localhost:{PORT}")
     print(f"🚀 Plugin ready for NetBox integration")
     print("-" * 50)
-    
+
     with socketserver.TCPServer(("", PORT), PluginDevHandler) as httpd:
         print(f"✅ Server running at http://localhost:{PORT}")
         print("📋 Access the development dashboard to view plugin info")
         print("🔄 Server will restart automatically on code changes")
         print("\nPress Ctrl+C to stop the server.")
-        
+
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
