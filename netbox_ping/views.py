@@ -10,6 +10,7 @@ import subprocess
 import concurrent.futures
 from datetime import date
 from django.http import JsonResponse
+import re
 
 from .utils import UnifiedInterface, natural_keys, perform_dns_lookup
 from .forms import InterfaceComparisonForm
