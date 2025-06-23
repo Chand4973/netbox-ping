@@ -255,7 +255,7 @@ netbox_ping/
         self.wfile.write(json.dumps(validation_result).encode())
 
 def main():
-    PORT = 3001
+    PORT = 8080
 
     print(f"🔌 NetBox Ping Plugin Development Server")
     print(f"📡 Starting server on http://localhost:{PORT}")
