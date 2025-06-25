@@ -420,11 +420,11 @@
         setTimeout(() => {
           pingAllButton.disabled = false;
           pingAllButton.innerHTML = originalButtonContent;
-        }, 1000);
+        }, 500);
       }
     }
 
-    // Click each subnet ping button with a small delay to prevent overwhelming the server
+    // Process each subnet ping with proper error handling
     subnetButtons.forEach((button, index) => {
       setTimeout(() => {
         if (!button.disabled) {
@@ -434,29 +434,104 @@
             .querySelector("td:first-child a")
             .textContent.trim();
 
-          // Create a custom ping function that includes completion tracking
-          const originalButton = button;
-          const originalOnclick = button.onclick;
-
-          // Temporarily replace the onclick to add completion tracking
-          button.onclick = function () {
-            pingSubnet(this, prefixId, prefixName);
-            // Set a timeout to check completion after ping is likely done
-            setTimeout(checkCompletion, 2000);
-          };
-
-          // Trigger the ping
-          button.click();
-
-          // Restore original onclick after a short delay
-          setTimeout(() => {
-            button.onclick = originalOnclick;
-          }, 100);
+          // Call pingSubnet directly and track completion
+          pingSubnetWithTracking(button, prefixId, prefixName, checkCompletion);
         } else {
           checkCompletion();
         }
-      }, index * 300); // 300ms delay between each ping to prevent server overload
+      }, index * 500); // Increased delay to 500ms to prevent server overload
     });
+  }
+
+  // Enhanced pingSubnet function with completion tracking
+  function pingSubnetWithTracking(button, prefixId, prefixName, onComplete) {
+    const resultCell = document.getElementById(`result-${prefixId}`);
+    const originalButtonContent = button.innerHTML;
+
+    // Show loading state
+    button.disabled = true;
+    button.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Pinging...';
+    resultCell.innerHTML =
+      '<div class="text-info"><i class="mdi mdi-loading mdi-spin"></i> Scanning...</div>';
+
+    // Send AJAX request
+    fetch(
+      `{% url 'plugins:netbox_ping:ping_subnet_ajax' prefix_id=0 %}`.replace(
+        "0",
+        prefixId,
+      ),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")
+            .value,
+        },
+      },
+    )
+      .then((response) => response.json())
+      .then((data) => {
+        button.disabled = false;
+        button.innerHTML = originalButtonContent;
+
+        if (data.success) {
+          let resultHTML = "";
+
+          // Build the result display
+          const onlineCount = data.online_ips.length;
+          const offlineCount = data.offline_ips.length;
+          const totalCount = onlineCount + offlineCount;
+
+          if (totalCount === 0) {
+            resultHTML = '<div class="text-muted">No IPs found</div>';
+          } else {
+            // Summary line
+            resultHTML += `<div class="mb-2"><strong>Summary:</strong> ${onlineCount} online, ${offlineCount} offline</div>`;
+
+            // Online IPs
+            if (onlineCount > 0) {
+              resultHTML += '<div class="mb-1">';
+              data.online_ips.forEach((ip, index) => {
+                if (index > 0) resultHTML += " ";
+                resultHTML += `<span class="ip-online">${ip}</span>`;
+              });
+              resultHTML += "</div>";
+            }
+
+            // Offline IPs
+            if (offlineCount > 0) {
+              resultHTML += "<div>";
+              data.offline_ips.forEach((ip, index) => {
+                if (index > 0) resultHTML += " ";
+                resultHTML += `<span class="ip-offline">${ip}</span>`;
+              });
+              resultHTML += "</div>";
+            }
+          }
+
+          resultCell.innerHTML = resultHTML;
+        } else {
+          resultCell.innerHTML = `<div class="text-danger"><i class="mdi mdi-alert"></i> ${data.message}</div>`;
+        }
+
+        // Call completion callback
+        if (onComplete) {
+          onComplete();
+        }
+      })
+      .catch((error) => {
+        button.disabled = false;
+        button.innerHTML = originalButtonContent;
+        resultCell.innerHTML =
+          '<div class="text-danger"><i class="mdi mdi-alert"></i> Network error</div>';
+        console.error("Error:", error);
+
+        // Call completion callback even on error
+        if (onComplete) {
+          onComplete();
+        }
+      });
   }
 
   // Auto-focus search input if present
