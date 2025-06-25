@@ -160,54 +160,6 @@
   </div>
 </div>
 
-<!-- PING ALL Button Section -->
-<div class="row mb-4">
-  <div class="col-12">
-    <div
-      class="card"
-      style="
-        border: 2px solid #28a745;
-        background: linear-gradient(135deg, #f8fff9 0%, #e8f5e8 100%);
-      "
-    >
-      <div class="card-body text-center py-4">
-        <button
-          id="pingAllButton"
-          class="btn btn-success btn-lg px-5 py-3 mb-3"
-          onclick="pingAllSubnets()"
-          style="
-            font-weight: bold;
-            font-size: 1.4em;
-            letter-spacing: 1px;
-            box-shadow: 0 8px 16px rgba(40, 167, 69, 0.4);
-            border: 3px solid #28a745;
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            min-width: 300px;
-            height: 60px;
-          "
-          onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 12px 24px rgba(40, 167, 69, 0.6)'"
-          onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 8px 16px rgba(40, 167, 69, 0.4)'"
-        >
-          <i class="mdi mdi-target-account me-2" style="font-size: 1.2em"></i>
-          🎯 PING ALL SUBNETS 🎯
-        </button>
-        <div class="mt-3">
-          <p class="mb-1 text-success fw-bold" style="font-size: 1.1em">
-            <i class="mdi mdi-information-outline me-1"></i>
-            Click to ping all IPs in every subnet below
-          </p>
-          <small class="text-muted" style="font-size: 0.95em">
-            This will automatically click all "Ping Subnet" buttons and show
-            results in the table
-          </small>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Subnet Ping Table Section -->
 <div class="row">
   <div class="col-12">
