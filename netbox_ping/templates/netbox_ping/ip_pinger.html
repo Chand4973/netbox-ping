@@ -130,6 +130,31 @@
           search_query }}"
         </div>
         {% endif %} {% endif %}
+
+        <!-- PING ALL Button positioned on the right -->
+        <div class="d-flex justify-content-end mt-3">
+          <button
+            id="pingAllButton"
+            class="btn btn-success px-3 py-2"
+            onclick="pingAllSubnets()"
+            style="
+              font-weight: bold;
+              font-size: 1em;
+              letter-spacing: 0.5px;
+              border: 2px solid #198754;
+              background-color: #198754;
+              color: white;
+              text-transform: uppercase;
+              min-width: 180px;
+              transition: all 0.3s ease;
+            "
+            onmouseover="this.style.backgroundColor='#157347'; this.style.borderColor='#146c43'"
+            onmouseout="this.style.backgroundColor='#198754'; this.style.borderColor='#198754'"
+          >
+            <i class="mdi mdi-target-account me-2"></i>
+            PING ALL SUBNETS
+          </button>
+        </div>
       </div>
     </div>
   </div>
