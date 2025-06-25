@@ -367,6 +367,73 @@
       });
   }
 
+  // Function to ping all subnets
+  function pingAllSubnets() {
+    const pingAllButton = document.getElementById("pingAllButton");
+    const originalButtonContent = pingAllButton.innerHTML;
+
+    // Find all ping subnet buttons
+    const subnetButtons = document.querySelectorAll("button[data-prefix-id]");
+
+    if (subnetButtons.length === 0) {
+      alert("No subnets available to ping");
+      return;
+    }
+
+    // Disable the PING ALL button and show loading state
+    pingAllButton.disabled = true;
+    pingAllButton.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> PINGING ALL...';
+
+    let completedCount = 0;
+    const totalCount = subnetButtons.length;
+
+    // Function to re-enable PING ALL button when all pings are complete
+    function checkCompletion() {
+      completedCount++;
+      if (completedCount >= totalCount) {
+        setTimeout(() => {
+          pingAllButton.disabled = false;
+          pingAllButton.innerHTML = originalButtonContent;
+        }, 1000);
+      }
+    }
+
+    // Click each subnet ping button with a small delay to prevent overwhelming the server
+    subnetButtons.forEach((button, index) => {
+      setTimeout(() => {
+        if (!button.disabled) {
+          const prefixId = button.getAttribute("data-prefix-id");
+          const prefixName = button
+            .closest("tr")
+            .querySelector("td:first-child a")
+            .textContent.trim();
+
+          // Create a custom ping function that includes completion tracking
+          const originalButton = button;
+          const originalOnclick = button.onclick;
+
+          // Temporarily replace the onclick to add completion tracking
+          button.onclick = function () {
+            pingSubnet(this, prefixId, prefixName);
+            // Set a timeout to check completion after ping is likely done
+            setTimeout(checkCompletion, 2000);
+          };
+
+          // Trigger the ping
+          button.click();
+
+          // Restore original onclick after a short delay
+          setTimeout(() => {
+            button.onclick = originalOnclick;
+          }, 100);
+        } else {
+          checkCompletion();
+        }
+      }, index * 300); // 300ms delay between each ping to prevent server overload
+    });
+  }
+
   // Auto-focus search input if present
   document.addEventListener("DOMContentLoaded", function () {
     const searchInput = document.querySelector('input[name="search"]');
