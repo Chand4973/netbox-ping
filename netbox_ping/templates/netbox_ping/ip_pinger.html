@@ -137,23 +137,37 @@
 
 <!-- PING ALL Button Section -->
 <div class="row mb-4">
-  <div class="col-12 text-center">
-    <button
-      id="pingAllButton"
-      class="btn btn-success btn-lg px-5 py-3"
-      onclick="pingAllSubnets()"
-      style="
-        font-weight: bold;
-        font-size: 1.2em;
-        letter-spacing: 1px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        border: none;
-      "
-    >
-      <i class="mdi mdi-target-account"></i> PING ALL
-    </button>
-    <div class="mt-2">
-      <small class="text-muted">Click to ping all subnets below</small>
+  <div class="col-12">
+    <div class="card border-success">
+      <div class="card-body text-center py-4">
+        <button
+          id="pingAllButton"
+          class="btn btn-success btn-lg px-5 py-3"
+          onclick="pingAllSubnets()"
+          style="
+            font-weight: bold;
+            font-size: 1.3em;
+            letter-spacing: 1px;
+            box-shadow: 0 6px 12px rgba(40, 167, 69, 0.3);
+            border: 2px solid #28a745;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            transition: all 0.3s ease;
+          "
+          onmouseover="this.style.transform='scale(1.05)'"
+          onmouseout="this.style.transform='scale(1)'"
+        >
+          <i class="mdi mdi-target-account me-2"></i> PING ALL SUBNETS
+        </button>
+        <div class="mt-3">
+          <p class="mb-0 text-success fw-bold">
+            <i class="mdi mdi-information"></i>
+            Click to ping all subnets in the table below
+          </p>
+          <small class="text-muted">
+            This will check connectivity to all IPs in every subnet listed
+          </small>
+        </div>
+      </div>
     </div>
   </div>
 </div>
